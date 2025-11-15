@@ -13,71 +13,71 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Поиск пакетов Qt
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+# ИСПРАВЛЕНИЕ: Используем 'Multimedia' как компонент. В Qt 6 это может включать
+# подмодули. Если используется Qt 5, это верный путь.
+# В зависимости от точной версии Qt 6, может потребоваться 'MultimediaWidgets',
+# но начнем с 'Multimedia'.
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Multimedia)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia)
 
-# Список всех исходных файлов
+# --- Список ВСЕХ Исходных Файлов (для корректной работы MOC) ---
 set(PROJECT_SOURCES
     main.cpp
     memorygamewindow.cpp
     memorygamewindow.h
     memorygamewindow.ui
+    memory_game.qrc
+
+    mainmenu.cpp
+    mainmenu.h
+    styleswindow.cpp
+    styleswindow.h
+
+    settingswindow.cpp
+    settingswindow.h
 )
+# -------------------------------------------------------------
 
-# --- Создание Исполняемого Файла (Executable) ---
 
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    # Конфигурация для Qt 6
+# --- Создание Исполняемого Файла ---
+if(QT_VERSION_MAJOR EQUAL 6)
     qt_add_executable(Memory
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        memory_game.qrc
-        # <-- Файл ресурсов добавлен для Qt 6
+        settingswindow.h settingswindow.cpp
     )
-    # Дополнительная настройка Android/пакетов здесь...
+    # ИСПРАВЛЕНИЕ ДЛЯ QT 6: Для звуковых эффектов (QSoundEffect) и плеера
+    # обычно достаточно Qt6::Multimedia, но если не сработает, нужно будет
+    # добавить Qt6::Qml/Qt6::Quick, но это более сложный случай.
+    # В большинстве случаев Qt6::Multimedia достаточно для базового аудио.
 else()
     # Конфигурация для Qt 5
     if(ANDROID)
-        # Если сборка идет под Android, создаем разделяемую библиотеку
+        # Если сборка идет под Android
         add_library(Memory SHARED
             ${PROJECT_SOURCES}
-            memory_game.qrc  # <-- Файл ресурсов добавлен для Qt 5 / Android
         )
     else()
-        # Если сборка идет под Desktop (Windows, Linux, macOS)
-        add_executable(Memory
-            ${PROJECT_SOURCES}
-            memory_game.qrc  # <-- **ИСПРАВЛЕНО:** Файл ресурсов добавлен для Desktop Qt 5
+        # Если сборка идет под Desktop
+        add_executable(Memory WIN32
+                    ${PROJECT_SOURCES}
         )
     endif()
 endif()
-
+set_property(TARGET Memory PROPERTY WIN32_EXECUTABLE ON)
 # --- Настройка Свойств Цели ---
 
-# Линковка с библиотеками Qt Widgets
-target_link_libraries(Memory PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+# Линковка с библиотеками Qt Widgets и Multimedia
+# ИСПРАВЛЕНИЕ: Добавляем Qt::Multimedia
+target_link_libraries(Memory PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Multimedia)
 
 # Настройка пакетов (Mac/Windows)
 if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.Memory)
+  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.memory)
+else()
+  set(BUNDLE_ID_OPTION)
 endif()
-set_target_properties(Memory PROPERTIES
-    ${BUNDLE_ID_OPTION}
-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
-)
 
-# Инсталляция
-include(GNUInstallDirs)
-install(TARGETS Memory
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-# Финализация для Qt 6
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(Memory)
 endif()

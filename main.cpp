@@ -1,14 +1,12 @@
-#include "memorygamewindow.h" // Include the correct window header
+#include "mainmenu.h" // Подключаем наше меню
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    // Original line: MainWindow w;
-    // New line:
-    MemoryGameWindow w; // <--- Change to MemoryGameWindow
-
+    MainMenu w; // Создаем экземпляр MainMenu
     w.show();
+
     return a.exec();
 }

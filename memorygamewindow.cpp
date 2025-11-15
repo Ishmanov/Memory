@@ -1,5 +1,5 @@
 #include "memorygamewindow.h"
-
+#include <QSettings>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -7,18 +7,66 @@
 #include <algorithm>
 #include <QDebug>
 #include <QIcon>
+#include <QMap>
+#include <QCoreApplication>
 
-// --- Конструктор и Инициализация ---
+// Константы для QSettings
+const QString ORGANIZATION_NAME = "AmNyamm";
+const QString APPLICATION_NAME = "MemoryGame";
+
+// НОВОЕ: Метод для применения настроек аудио
+void MemoryGameWindow::applyAudioSettings()
+{
+    // Установка имени организации и приложения, если это первое обращение к QSettings
+    QCoreApplication::setOrganizationName(ORGANIZATION_NAME);
+    QCoreApplication::setApplicationName(APPLICATION_NAME);
+
+    QSettings settings;
+
+    // 1. Музыка
+    bool musicEnabled = settings.value("audio/music_enabled", true).toBool();
+    float musicVolume = musicEnabled ? 0.1f : 0.0f; // Фоновая музыка обычно тише
+
+    if (gameAudioOutput) {
+        gameAudioOutput->setVolume(musicVolume);
+    }
+
+    // 2. Звуковые эффекты
+    bool soundEnabled = settings.value("audio/sound_enabled", true).toBool();
+    float soundVolume = soundEnabled ? 0.8f : 0.0f; // Звуковые эффекты громче
+
+    // Применяем громкость ко всем плеерам звуковых эффектов
+    if (flipAudioOutput) { //
+        flipAudioOutput->setVolume(soundVolume);
+    }
+    if (victoryAudioOutput) { //
+        victoryAudioOutput->setVolume(soundVolume);
+    }
+    if (defeatAudioOutput) { //
+        defeatAudioOutput->setVolume(soundVolume);
+    }
+}
 
 MemoryGameWindow::MemoryGameWindow(QWidget *parent)
     : QMainWindow(parent)
+    , gameBGMPlayer(new QMediaPlayer(this))
+    , gameAudioOutput(new QAudioOutput(this))
+    // НОВОЕ: Инициализация эффектов через QMediaPlayer и QAudioOutput
+    , flipPlayer(new QMediaPlayer(this))
+    , flipAudioOutput(new QAudioOutput(this))
+
+    , victoryPlayer(new QMediaPlayer(this))
+    , victoryAudioOutput(new QAudioOutput(this))
+
+    , defeatPlayer(new QMediaPlayer(this))
+    , defeatAudioOutput(new QAudioOutput(this))
 {
     // Настройка основного окна
-    setWindowTitle("Ам-Ням: Найди Пару!");
-    setMinimumSize(490, 500);
-    setMaximumSize(500, 650);
+    setWindowTitle("Найди Пару!");
+    setMinimumSize(500, 600);
+    setMaximumSize(550, 700);
 
-    // Установка желтого фона, как в WPF
+    // Установка желтого фона
     setStyleSheet("QMainWindow { background-color: #fdee02; }");
 
     // Инициализация таймеров
@@ -35,11 +83,41 @@ MemoryGameWindow::MemoryGameWindow(QWidget *parent)
     flipBackTimer->setInterval(1000); // 1 секунда
     connect(flipBackTimer, &QTimer::timeout, this, &MemoryGameWindow::flipBackTimeout);
 
+    // --- НОВОЕ: Настройка Аудио ---
+
+    // BGM
+    gameBGMPlayer->setAudioOutput(gameAudioOutput);
+    gameAudioOutput->setVolume(0.1f);
+    gameBGMPlayer->setSource(QUrl("qrc:/audios/game_bgm.mp3"));
+    gameBGMPlayer->setLoops(QMediaPlayer::Infinite);
+
+    // 1. Flip Sound (Звук переворота карты)
+    flipPlayer->setAudioOutput(flipAudioOutput);
+    flipAudioOutput->setVolume(0.8f);
+    flipPlayer->setSource(QUrl("qrc:/audios/card_flip.mp3")); // Используем MP3
+
+    // 2. Victory Sound (Звук победы)
+    victoryPlayer->setAudioOutput(victoryAudioOutput);
+    victoryAudioOutput->setVolume(0.8f);
+    victoryPlayer->setSource(QUrl("qrc:/audios/victory.mp3")); // Используем MP3
+
+    // 3. Defeat Sound (Звук поражения)
+    defeatPlayer->setAudioOutput(defeatAudioOutput);
+    defeatAudioOutput->setVolume(0.8f);
+    defeatPlayer->setSource(QUrl("qrc:/audios/defeat.mp3")); // Используем MP3
+
+    // НОВОЕ: Применяем настройки аудио сразу после инициализации плееров
+    applyAudioSettings();
+
     setupUI();
     startNewGame();
 }
 
-MemoryGameWindow::~MemoryGameWindow() {}
+MemoryGameWindow::~MemoryGameWindow() {
+    if (gameBGMPlayer->playbackState() == QMediaPlayer::PlayingState) {
+        gameBGMPlayer->stop();
+    }
+}
 
 // --- Функции UI и Инициализации ---
 
@@ -59,7 +137,7 @@ void MemoryGameWindow::setupUI() {
     newGameButton->setFixedSize(120, 30);
     connect(newGameButton, &QPushButton::clicked, this, &MemoryGameWindow::startNewGameClicked);
 
-    // Применение стиля из XAML (только самые необходимые свойства)
+    // Применение стилей
     QString buttonStyle =
         "QPushButton {"
         "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFB6F772, stop:1 #FF7ED957);"
@@ -96,6 +174,7 @@ void MemoryGameWindow::setupUI() {
 }
 
 void MemoryGameWindow::startNewGame() {
+    gameBGMPlayer->play();
     gameTimer->stop();
     tempShowTimer->stop();
     flipBackTimer->stop();
@@ -164,24 +243,20 @@ void MemoryGameWindow::fillImagePaths() {
     std::vector<std::string> names;
     // 1. Создаем 20 путей (10 пар)
     for (int n = 1; n <= TOTAL_PAIRS; ++n) {
-        // !!! ВАЖНО: Используем путь ресурсов Qt ":/префикс/имяфайла.png"
         std::string path = "://images/image" + std::to_string(n) + ".png";
 
         // Добавляем ПАРУ путей для каждой картинки
         names.push_back(path);
         names.push_back(path);
     }
-    // names теперь ГАРАНТИРОВАННО содержит 20 элементов (10 пар)
 
-    // 2. Перемешивание (аналог Concat и OrderBy(Guid.NewGuid()))
+    // 2. Перемешивание
     std::shuffle(names.begin(), names.end(), *QRandomGenerator::global());
 
     // 3. Заполнение сетки (20 элементов)
     int index = 0;
     for (int i = 0; i < ROWS; ++i) {
         for (int j = 0; j < COLS; ++j) {
-            // Условие 'if (index < names.size())' больше не нужно,
-            // так как names.size() == ROWS * COLS
             imagePaths[i][j] = names[index++];
         }
     }
@@ -197,11 +272,8 @@ void MemoryGameWindow::showImage(QPushButton* btn, const std::string& path) {
 
     QPixmap originalPixmap = loadedImages[path];
 
-    // Кнопки созданы с setFixedSize(100, 100)
     QSize buttonSize(100, 100);
 
-    // Масштабирование QPixmap до размера кнопки (100x100)
-    // Используем Qt::KeepAspectRatio, чтобы избежать искажения
     QPixmap scaledPixmap = originalPixmap.scaled(buttonSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
     QIcon icon(scaledPixmap);
@@ -256,6 +328,11 @@ void MemoryGameWindow::gameTimerTimeout() {
 
 void MemoryGameWindow::handleButtonClick() {
     if (!gameStarted || flipBackTimer->isActive()) return; // Защита от кликов во время задержки
+
+    // НОВОЕ: Проигрываем звук переворота карты через QMediaPlayer
+    // Сбрасываем позицию, чтобы звук мог проиграться снова, даже если был только что завершен
+    flipPlayer->setPosition(0);
+    flipPlayer->play();
 
     QPushButton* btn = qobject_cast<QPushButton*>(sender());
     if (!btn || !btn->isEnabled()) return;
@@ -315,7 +392,6 @@ void MemoryGameWindow::handleButtonClick() {
 void MemoryGameWindow::flipBackTimeout() {
     for (QPushButton* b : selectedButtons) {
         b->setIcon(QIcon()); // Скрыть изображение
-        // Кнопка остается заблокированной, если она была частью пары, но это не наш случай (тут пара не совпала)
         b->setEnabled(true);
     }
     selectedButtons.clear();
@@ -354,19 +430,36 @@ void MemoryGameWindow::enableAllButtons(bool enable) {
 // --- Экраны Завершения ---
 
 void MemoryGameWindow::showVictoryScreen() {
-    QMessageBox::information(this,
-                             "Победа!",
-                             QString("Ам-Ням счастлив! Вы победили!\nПопыток: %1").arg(attempts));
+    gameTimer->stop();
     enableAllButtons(false);
+
+    gameBGMPlayer->stop();
+    victoryPlayer->setPosition(0); // Сброс позиции
+    victoryPlayer->play();
+
+    emit gameWon(attempts); // Отправляем сигнал о победе с кол-вом попыток
+    this->close(); // Закрываем окно игры
 }
 
 void MemoryGameWindow::showGameOver(const QString& reason) {
-    QMessageBox::warning(this,
-                         "Ам-Ням остался голодным",
-                         QString("Игра окончена: %1").arg(reason));
+    Q_UNUSED(reason);
+
+    gameTimer->stop(); // Останавливаем таймер
     enableAllButtons(false);
+
+    // Останавливаем BGM и проигрываем звук поражения
+    gameBGMPlayer->stop();
+    defeatPlayer->setPosition(0); // Сброс позиции
+    defeatPlayer->play();
+
+    emit gameLost(matchedPairs); // Отправляем сигнал о поражении с кол-вом найденных пар
+    this->close();
 }
 
 void MemoryGameWindow::startNewGameClicked() {
+    if (gameBGMPlayer->playbackState() == QMediaPlayer::PlayingState) {
+        gameBGMPlayer->stop();
+    }
+
     startNewGame();
 }

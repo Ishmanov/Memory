@@ -12,7 +12,10 @@
 #include <string>
 #include <map>
 
-// QTimer - это аналог DispatcherTimer в C#
+#include <QMediaPlayer> // Для фоновой музыки и MP3 эффектов
+#include <QAudioOutput> // Для управления громкостью QMediaPlayer в Qt 6
+
+// QTimer - это аналог DispatcherTimer
 
 class MemoryGameWindow : public QMainWindow
 {
@@ -22,6 +25,17 @@ public:
     explicit MemoryGameWindow(QWidget *parent = nullptr);
     ~MemoryGameWindow();
 
+signals:
+    // Сигнал, испускаемый при победе.
+    // moves Количество ходов, затраченных на победу.
+    void gameWon(int moves);
+
+    /**
+    // Сигнал, испускаемый при поражении (например, по таймауту).
+    // pairsFound Количество пар, найденных до поражения.
+     */
+    void gameLost(int pairsFound);
+
 private slots:
     void handleButtonClick();       // Обработчик нажатия на игровую кнопку
     void startNewGameClicked();     // Обработчик кнопки "Новая игра"
@@ -30,6 +44,7 @@ private slots:
     void flipBackTimeout();         // Слот для таймера, переворачивающего несовпавшие карты
 
 private:
+    void applyAudioSettings();
     void setupUI();
     void createGrid();
     void fillImagePaths();
@@ -42,7 +57,7 @@ private:
 
     void startNewGame();
 
-    // --- Константы (Конфигурация Игры) ---
+    // --- Константы ---
     const int ROWS = 5;
     const int COLS = 4;
     const int TOTAL_PAIRS = 10;
@@ -75,6 +90,19 @@ private:
     QTimer* gameTimer;      // Основной таймер игры
     QTimer* tempShowTimer;  // Таймер для временного показа карт
     QTimer* flipBackTimer;  // Таймер для задержки при несовпадении
+
+    // НОВОЕ: Аудио
+    QMediaPlayer *gameBGMPlayer;   // Фоновая музыка игры
+    QAudioOutput *gameAudioOutput; // Выход для BGM
+
+    QMediaPlayer *flipPlayer;      // Звук переворота карты (MP3)
+    QAudioOutput *flipAudioOutput;
+
+    QMediaPlayer *victoryPlayer;   // Звук победы (MP3)
+    QAudioOutput *victoryAudioOutput;
+
+    QMediaPlayer *defeatPlayer;    // Звук поражения (MP3)
+    QAudioOutput *defeatAudioOutput;
 };
 
-#endif // MEMORYGAMEWINDOW_H
+#endif

@@ -11,4 +11,12 @@
         <file>image9.png</file>
         <file>image10.png</file>
     </qresource>
+    <qresource prefix="/audios">
+        <file>game_bgm.mp3</file>
+        <file>menu_bgm.mp3</file>
+        <file>button_click.mp3</file>
+        <file>card_flip.mp3</file>
+        <file>defeat.mp3</file>
+        <file>victory.mp3</file>
+    </qresource>
 </RCC>
