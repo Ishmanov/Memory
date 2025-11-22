@@ -35,7 +35,7 @@ void SettingsWindow::setupUI()
     mainLayout->setContentsMargins(20, 20, 20, 20);
 
     // Заголовок
-    QLabel *titleLabel = new QLabel("Настройки Аудио");
+    QLabel *titleLabel = new QLabel("Настройки");
     QFont font = titleLabel->font();
     font.setPointSize(16);
     font.setBold(true);
@@ -63,13 +63,18 @@ void SettingsWindow::setupUI()
     // Применение базовых стилей
     QString styleSheet = R"(
         QDialog {
-            background-color: #f0f0f0;
+            background-color: #5f9ea0;
         }
         #settingsTitle {
-            color: #2c3e50;
+            color: #480607;
+            font-size: 25px;
+            font-weight: 600;
+            margin-bottom: 10px;
         }
         QCheckBox {
+            background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #98f5ff, stop:1 #7ac5cd);
             font-size: 18px;
+            font-weight: 600;
             padding: 5px;
         }
     )";
