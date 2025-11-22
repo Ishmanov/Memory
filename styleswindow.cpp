@@ -84,13 +84,13 @@ void StylesWindow::refreshGrid()
     stylesGridLayout->addWidget(createStyleCard(1, 0, "Ам-Ням", "#7ED957"), 0, 0);
 
     // Стиль 2
-    stylesGridLayout->addWidget(createStyleCard(2, 10000, "Океан", "#4facfe"), 0, 1);
+    stylesGridLayout->addWidget(createStyleCard(2, 10000, "Фрукты", "#4facfe"), 0, 1);
 
     // Стиль 3
-    stylesGridLayout->addWidget(createStyleCard(3, 10000, "Закат", "#fa709a"), 1, 0);
+    stylesGridLayout->addWidget(createStyleCard(3, 10000, "Игрушки", "#fa709a"), 1, 0);
 
     // Стиль 4
-    stylesGridLayout->addWidget(createStyleCard(4, 10000, "Закат", "#ffff99"), 1, 1);
+    stylesGridLayout->addWidget(createStyleCard(4, 10000, "Животные", "#ffff99"), 1, 1);
 }
 
 QWidget* StylesWindow::createStyleCard(int styleId, int cost, const QString& name, const QString& colorHex)
