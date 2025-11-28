@@ -19,6 +19,7 @@
 
 void MainMenu::loadCoins()
 {
+    this->setWindowIcon(QIcon(":/icons/game_icon.ico"));
     // QSettings позволяет сохранять настройки между запусками программы
     // "AmNyamm" - имя автора/компании, "MemoryGame" - название игры
     QSettings settings("AmNyamm", "MemoryGame");

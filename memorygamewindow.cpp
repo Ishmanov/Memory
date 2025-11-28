@@ -50,6 +50,7 @@ MemoryGameWindow::MemoryGameWindow(GameDifficulty* difficulty, QWidget *parent)
     , defeatPlayer(new QMediaPlayer(this))
     , defeatAudioOutput(new QAudioOutput(this))
 {
+    this->setWindowIcon(QIcon(":/icons/game_icon.ico"));
     // Берем параметры из переданного объекта сложности
     rows = difficulty->getRows();
     cols = difficulty->getCols();

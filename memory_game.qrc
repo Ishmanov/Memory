@@ -57,4 +57,7 @@
         <file>defeat.mp3</file>
         <file>victory.mp3</file>
     </qresource>
+    <qresource prefix="/icons">
+        <file>game_icon.ico</file>
+    </qresource>
 </RCC>

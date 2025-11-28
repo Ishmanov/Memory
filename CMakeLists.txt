@@ -64,6 +64,15 @@ else()
         )
     endif()
 endif()
+
+if(WIN32)
+    message(STATUS "Adding Windows RC file for icon: app_icon.rc")
+    # Добавляем файл ресурсов Windows (.rc)
+    target_sources(Memory PRIVATE
+        app_icon.rc
+    )
+endif()
+
 set_property(TARGET Memory PROPERTY WIN32_EXECUTABLE ON)
 # --- Настройка Свойств Цели ---
 
