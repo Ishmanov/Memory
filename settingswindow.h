@@ -4,11 +4,9 @@
 #include <QDialog>
 #include <QSettings>
 
-class QCheckBox; // Используем forward declaration
+class QCheckBox;
 
-/**
- * @brief Окно настроек, содержащее переключатели для звука и музыки.
- */
+// Окно настроек с галочками для включения музыки и звуков
 class SettingsWindow : public QDialog
 {
     Q_OBJECT
@@ -18,23 +16,18 @@ public:
     ~SettingsWindow();
 
 private slots:
-    // Слот для сохранения состояния переключателя музыки
+    // Слоты для сохранения состояния чекбоксов
     void onMusicToggle(int state);
-
-    // Слот для сохранения состояния переключателя звука
     void onSoundToggle(int state);
 
 private:
-    // Настраивает UI окна.
     void setupUI();
-
-    // Загружает сохраненные настройки и применяет их к чекбоксам.
     void loadSettings();
 
     QCheckBox *musicCheckBox;
     QCheckBox *soundCheckBox;
 
-    // Ключи для QSettings
+    // Ключи (имена переменных), под которыми настройки хранятся в системе
     const QString MusicKey = "audio/music_enabled";
     const QString SoundKey = "audio/sound_enabled";
 };

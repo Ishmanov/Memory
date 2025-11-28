@@ -13,10 +13,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Поиск пакетов Qt
-# ИСПРАВЛЕНИЕ: Используем 'Multimedia' как компонент. В Qt 6 это может включать
-# подмодули. Если используется Qt 5, это верный путь.
-# В зависимости от точной версии Qt 6, может потребоваться 'MultimediaWidgets',
-# но начнем с 'Multimedia'.
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Multimedia)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia)
 
@@ -35,6 +31,10 @@ set(PROJECT_SOURCES
 
     settingswindow.cpp
     settingswindow.h
+
+    difficulties.h
+    difficultyselectionwindow.cpp
+    difficultyselectionwindow.h
 )
 # -------------------------------------------------------------
 
@@ -45,11 +45,11 @@ if(QT_VERSION_MAJOR EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         settingswindow.h settingswindow.cpp
+        difficulties.h
+        difficulties.h
+        difficulties.h
+        difficultyselectionwindow.h difficultyselectionwindow.cpp
     )
-    # ИСПРАВЛЕНИЕ ДЛЯ QT 6: Для звуковых эффектов (QSoundEffect) и плеера
-    # обычно достаточно Qt6::Multimedia, но если не сработает, нужно будет
-    # добавить Qt6::Qml/Qt6::Quick, но это более сложный случай.
-    # В большинстве случаев Qt6::Multimedia достаточно для базового аудио.
 else()
     # Конфигурация для Qt 5
     if(ANDROID)
@@ -68,7 +68,6 @@ set_property(TARGET Memory PROPERTY WIN32_EXECUTABLE ON)
 # --- Настройка Свойств Цели ---
 
 # Линковка с библиотеками Qt Widgets и Multimedia
-# ИСПРАВЛЕНИЕ: Добавляем Qt::Multimedia
 target_link_libraries(Memory PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Multimedia)
 
 # Настройка пакетов (Mac/Windows)

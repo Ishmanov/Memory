@@ -46,6 +46,8 @@
         <file>4 - image10.png</file>
         <file>4 - image11.png</file>
         <file>4 - image12.png</file>
+        <file>1 - image11.png</file>
+        <file>1 - image12.png</file>
     </qresource>
     <qresource prefix="/audios">
         <file>game_bgm.mp3</file>

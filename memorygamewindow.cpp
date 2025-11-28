@@ -10,11 +10,10 @@
 #include <QMap>
 #include <QCoreApplication>
 
-// Константы для QSettings
 const QString ORGANIZATION_NAME = "AmNyamm";
 const QString APPLICATION_NAME = "MemoryGame";
 
-// НОВОЕ: Метод для применения настроек аудио
+// Загружаем настройки звука (вкл/выкл)
 void MemoryGameWindow::applyAudioSettings()
 {
     QCoreApplication::setOrganizationName(ORGANIZATION_NAME);
@@ -39,8 +38,9 @@ void MemoryGameWindow::applyAudioSettings()
     if (defeatAudioOutput) defeatAudioOutput->setVolume(soundVolume);
 }
 
-MemoryGameWindow::MemoryGameWindow(QWidget *parent)
+MemoryGameWindow::MemoryGameWindow(GameDifficulty* difficulty, QWidget *parent)
     : QMainWindow(parent)
+    , currentDifficulty(difficulty)
     , gameBGMPlayer(new QMediaPlayer(this))
     , gameAudioOutput(new QAudioOutput(this))
     , flipPlayer(new QMediaPlayer(this))
@@ -50,24 +50,39 @@ MemoryGameWindow::MemoryGameWindow(QWidget *parent)
     , defeatPlayer(new QMediaPlayer(this))
     , defeatAudioOutput(new QAudioOutput(this))
 {
+    // Берем параметры из переданного объекта сложности
+    rows = difficulty->getRows();
+    cols = difficulty->getCols();
+    memoryTime = difficulty->getMemoryTime();
+    coinMultiplier = difficulty->getCoinMultiplier();
+    gameTotalTime = difficulty->getGameTime();
+
+    totalPairs = (rows * cols) / 2; // Количество пар = половина от всех карт
+
     setWindowTitle("Найди Пару!");
-    setMinimumSize(500, 600);
-    setMaximumSize(550, 700);
+
+    // Рассчитываем размер окна под количество карт
+    int width = cols * 110 + 40;
+    int height = rows * 110 + 150;
+    setMinimumSize(width, height);
+    setMaximumSize(width + 50, height + 50);
 
     setStyleSheet("QMainWindow { background-color: #5f9ea0; }");
 
-    // Инициализация таймеров
+    // Таймер основного времени игры
     gameTimer = new QTimer(this);
     connect(gameTimer, &QTimer::timeout, this, &MemoryGameWindow::gameTimerTimeout);
 
+    // Таймер для показа карт в начале
     tempShowTimer = new QTimer(this);
-    tempShowTimer->setSingleShot(true);
-    tempShowTimer->setInterval(MEMORY_TIME * 1000);
+    tempShowTimer->setSingleShot(true); // Сработает только один раз
+    tempShowTimer->setInterval(memoryTime * 1000); // Переводим секунды в миллисекунды
     connect(tempShowTimer, &QTimer::timeout, this, &MemoryGameWindow::hideAllCardsTimeout);
 
+    // Таймер для переворота карт обратно при ошибке
     flipBackTimer = new QTimer(this);
     flipBackTimer->setSingleShot(true);
-    flipBackTimer->setInterval(1000);
+    flipBackTimer->setInterval(1000); // 1 секунда задержки
     connect(flipBackTimer, &QTimer::timeout, this, &MemoryGameWindow::flipBackTimeout);
 
     // --- Настройка Аудио ---
@@ -87,7 +102,7 @@ MemoryGameWindow::MemoryGameWindow(QWidget *parent)
 
     applyAudioSettings();
 
-    // Загружаем текущий стиль перед созданием UI
+    // Загружаем сохраненный стиль карт
     QSettings settings(ORGANIZATION_NAME, APPLICATION_NAME);
     currentStyleId = settings.value("current_style", 1).toInt();
 
@@ -99,27 +114,28 @@ MemoryGameWindow::~MemoryGameWindow() {
     if (gameBGMPlayer->playbackState() == QMediaPlayer::PlayingState) {
         gameBGMPlayer->stop();
     }
+    // Удаляем объект сложности вручную, так как мы создали его через new
+    if (currentDifficulty) {
+        delete currentDifficulty;
+    }
 }
 
-// Получение CSS стиля для кнопки в зависимости от текущего стиля игры
+// Возвращает CSS для кнопок (цвет и градиент рубашки)
 QString MemoryGameWindow::getButtonStyle() {
     QString gradient;
     QString borderColor;
 
     if (currentStyleId == 2) {
-        // Стиль 2
         gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4facfe, stop:1 #00f2fe)";
         borderColor = "#00c6fb";
     } else if (currentStyleId == 3) {
-        // Стиль 3
         gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fa709a, stop:1 #fee140)";
         borderColor = "#fa709a";
     } else if (currentStyleId == 4) {
-        // Стиль 4
         gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 	#ffff99, stop:1 #78866b)";
         borderColor = "#ffff99";
     } else {
-        // Стиль 1
+        // Дефолтный стиль
         gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFB6F772, stop:1 #FF7ED957)";
         borderColor = "#FF3F9E2F";
     }
@@ -145,7 +161,7 @@ void MemoryGameWindow::setupUI() {
 
     QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
 
-    // Верхняя панель
+    // Верхняя панель с кнопкой и таймером
     QWidget* topPanel = new QWidget();
     topPanel->setStyleSheet("background-color: #5f9ea0; max-height: 50px;");
     QHBoxLayout* topLayout = new QHBoxLayout(topPanel);
@@ -155,13 +171,12 @@ void MemoryGameWindow::setupUI() {
     newGameButton->setFixedSize(120, 30);
     connect(newGameButton, &QPushButton::clicked, this, &MemoryGameWindow::startNewGameClicked);
 
-    // Применение стилей к кнопке новой игры
     newGameButton->setStyleSheet(getButtonStyle());
 
     attemptsLabel = new QLabel("Попытки: 0");
     attemptsLabel->setFont(QFont("Arial", 16));
 
-    timerLabel = new QLabel(QString("Осталось: %1 сек").arg(TOTAL_TIME));
+    timerLabel = new QLabel(QString("Осталось: %1 сек").arg(gameTotalTime));
     timerLabel->setFont(QFont("Arial", 16));
 
     topLayout->addWidget(newGameButton);
@@ -171,7 +186,7 @@ void MemoryGameWindow::setupUI() {
 
     mainLayout->addWidget(topPanel);
 
-    // Основная сетка игры
+    // Контейнер для сетки карт
     QWidget* gridContainer = new QWidget();
     mainGridLayout = new QGridLayout(gridContainer);
     mainGridLayout->setContentsMargins(10, 10, 10, 10);
@@ -184,27 +199,29 @@ void MemoryGameWindow::startNewGame() {
     tempShowTimer->stop();
     flipBackTimer->stop();
 
+    // Очищаем сетку от старых кнопок
     if (mainGridLayout) {
         QLayoutItem *item;
         while ((item = mainGridLayout->takeAt(0)) != 0) {
-            if (item->widget()) item->widget()->deleteLater();
-            delete item;
+            if (item->widget()) item->widget()->deleteLater(); // Удаляем виджет
+            delete item; // Удаляем элемент лейаута
         }
     }
 
-    buttons.assign(ROWS, std::vector<QPushButton*>(COLS, nullptr));
-    imagePaths.assign(ROWS, std::vector<std::string>(COLS, ""));
+    // Пересоздаем массивы для хранения данных
+    buttons.assign(rows, std::vector<QPushButton*>(cols, nullptr));
+    imagePaths.assign(rows, std::vector<std::string>(cols, ""));
     selectedButtons.clear();
     loadedImages.clear();
 
     attempts = 0;
     mistakes = 0;
     matchedPairs = 0;
-    timeLeft = TOTAL_TIME;
+    timeLeft = gameTotalTime;
     gameStarted = false;
 
     attemptsLabel->setText("Попытки: 0");
-    timerLabel->setText(QString("Осталось: %1 сек").arg(TOTAL_TIME));
+    timerLabel->setText(QString("Осталось: %1 сек").arg(timeLeft));
 
     createGrid();
     fillImagePaths();
@@ -213,22 +230,22 @@ void MemoryGameWindow::startNewGame() {
 
 void MemoryGameWindow::createGrid() {
     mainGridLayout->setSpacing(10);
-    QString style = getButtonStyle(); // Получаем стиль рубашки один раз
+    QString style = getButtonStyle();
 
-    for (int i = 0; i < ROWS; ++i) {
-        for (int j = 0; j < COLS; ++j) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
             QPushButton* btn = new QPushButton();
             btn->setFixedSize(100, 100);
+            // Запоминаем координаты кнопки внутри самой кнопки
             btn->setProperty("row", i);
             btn->setProperty("col", j);
 
-            // Устанавливаем стиль (цвет рубашки зависит от выбранного стиля)
             btn->setStyleSheet(style);
 
             connect(btn, &QPushButton::clicked, this, &MemoryGameWindow::handleButtonClick);
             mainGridLayout->addWidget(btn, i, j);
             buttons[i][j] = btn;
-            btn->setEnabled(false);
+            btn->setEnabled(false); // Сначала кнопки неактивны (идет показ)
         }
     }
 }
@@ -236,38 +253,41 @@ void MemoryGameWindow::createGrid() {
 void MemoryGameWindow::fillImagePaths() {
     std::vector<std::string> names;
 
-    // Формируем пути на основе ID стиля
-    // Пример: "://images/1 - image5.png"
-    for (int n = 1; n <= TOTAL_PAIRS; ++n) {
-        std::string path = "://images/" + std::to_string(currentStyleId) + " - image" + std::to_string(n) + ".png";
+    // Заполняем список парами картинок
+    for (int n = 0; n < totalPairs; ++n) {
+        int imgIndex = n + 1;
+        std::string path = "://images/" + std::to_string(currentStyleId) + " - image" + std::to_string(imgIndex) + ".png";
         names.push_back(path);
-        names.push_back(path);
+        names.push_back(path); // Добавляем дважды (для пары)
     }
 
+    // Перемешиваем массив случайным образом
     std::shuffle(names.begin(), names.end(), *QRandomGenerator::global());
 
+    // Распределяем перемешанные картинки по сетке
     int index = 0;
-    for (int i = 0; i < ROWS; ++i) {
-        for (int j = 0; j < COLS; ++j) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
             imagePaths[i][j] = names[index++];
         }
     }
 }
 
 void MemoryGameWindow::showImage(QPushButton* btn, const std::string& path) {
+    // Кэшируем загрузку, чтобы не читать файл с диска каждый раз
     if (loadedImages.find(path) == loadedImages.end()) {
         loadedImages[path] = QPixmap(QString::fromStdString(path));
     }
 
     QPixmap originalPixmap = loadedImages[path];
     if (originalPixmap.isNull()) {
-        // Если картинка не найдена (например, забыли переименовать файлы), показываем заглушку
         btn->setText("Image\nNot Found");
         return;
     }
-    btn->setText(""); // Очищаем текст если есть картинка
+    btn->setText("");
 
     QSize buttonSize(100, 100);
+    // Масштабируем картинку под размер кнопки
     QPixmap scaledPixmap = originalPixmap.scaled(buttonSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     QIcon icon(scaledPixmap);
     btn->setIcon(icon);
@@ -278,19 +298,22 @@ void MemoryGameWindow::showAllImagesTemporarily() {
     newGameButton->setEnabled(false);
     enableAllButtons(false);
 
-    for (int i = 0; i < ROWS; ++i) {
-        for (int j = 0; j < COLS; ++j) {
+    // Показываем картинки на всех кнопках
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
             showImage(buttons[i][j], imagePaths[i][j]);
         }
     }
+    // Запускаем таймер, который скроет их
     tempShowTimer->start();
 }
 
 void MemoryGameWindow::hideAllCardsTimeout() {
-    for (int i = 0; i < ROWS; ++i) {
-        for (int j = 0; j < COLS; ++j) {
+    // Скрываем картинки (ставим пустую иконку)
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
             buttons[i][j]->setIcon(QIcon());
-            buttons[i][j]->setEnabled(true);
+            buttons[i][j]->setEnabled(true); // Теперь можно нажимать
         }
     }
     newGameButton->setEnabled(true);
@@ -299,7 +322,7 @@ void MemoryGameWindow::hideAllCardsTimeout() {
 
 void MemoryGameWindow::startCountdown() {
     gameStarted = true;
-    gameTimer->start(1000);
+    gameTimer->start(1000); // Запуск таймера (тик раз в секунду)
 }
 
 void MemoryGameWindow::gameTimerTimeout() {
@@ -313,21 +336,25 @@ void MemoryGameWindow::gameTimerTimeout() {
 }
 
 void MemoryGameWindow::handleButtonClick() {
+    // Если идет анимация возврата карт или игра не идет - игнорируем клик
     if (!gameStarted || flipBackTimer->isActive()) return;
 
     flipPlayer->setPosition(0);
     flipPlayer->play();
 
+    // sender() возвращает указатель на объект, который послал сигнал (нажатую кнопку)
     QPushButton* btn = qobject_cast<QPushButton*>(sender());
     if (!btn || !btn->isEnabled()) return;
 
+    // Достаем координаты из свойств кнопки
     int i = btn->property("row").toInt();
     int j = btn->property("col").toInt();
 
     showImage(btn, imagePaths[i][j]);
-    btn->setEnabled(false);
+    btn->setEnabled(false); // Блокируем нажатую кнопку
     selectedButtons.push_back(btn);
 
+    // Если открыто 2 карты
     if (selectedButtons.size() == 2) {
         attempts++;
         attemptsLabel->setText(QString("Попытки: %1").arg(attempts));
@@ -338,6 +365,7 @@ void MemoryGameWindow::handleButtonClick() {
         int i1 = btn1->property("row").toInt(), j1 = btn1->property("col").toInt();
         int i2 = btn2->property("row").toInt(), j2 = btn2->property("col").toInt();
 
+        // Если картинки не совпали
         if (imagePaths[i1][j1] != imagePaths[i2][j2]) {
             mistakes++;
             if (mistakes >= MAX_MISTAKES) {
@@ -345,15 +373,16 @@ void MemoryGameWindow::handleButtonClick() {
                 showGameOver("Слишком много ошибок!");
                 return;
             }
-            enableAllButtons(false);
-            flipBackTimer->start();
+            enableAllButtons(false); // Блокируем всё поле, чтобы игрок не тыкал дальше
+            flipBackTimer->start(); // Ждем секунду перед переворотом обратно
         } else {
+            // Если совпали
             matchedPairs++;
 
             btn1->setEnabled(false);
             btn2->setEnabled(false);
 
-            // Стиль совпавших пар (можно тоже кастомизировать, но пока оставим зеленый/синий)
+            // Подсвечиваем совпавшие (зеленым)
             btn1->setStyleSheet("border: 4px solid blue; background-color: #aaf0aa;");
             btn2->setStyleSheet("border: 4px solid blue; background-color: #aaf0aa;");
 
@@ -362,7 +391,7 @@ void MemoryGameWindow::handleButtonClick() {
             btn2->setIconSize(buttonSize);
 
             selectedButtons.clear();
-            if (matchedPairs == TOTAL_PAIRS) {
+            if (matchedPairs == totalPairs) {
                 gameTimer->stop();
                 showVictoryScreen();
             }
@@ -371,22 +400,25 @@ void MemoryGameWindow::handleButtonClick() {
 }
 
 void MemoryGameWindow::flipBackTimeout() {
+    // Переворачиваем выбранные карты обратно рубашкой вверх
     for (QPushButton* b : selectedButtons) {
         b->setIcon(QIcon());
         b->setEnabled(true);
     }
     selectedButtons.clear();
     flipBackTimer->stop();
-    enableAllButtons(true);
+    enableAllButtons(true); // Разблокируем поле
 }
 
 void MemoryGameWindow::enableAllButtons(bool enable) {
-    for (int i = 0; i < ROWS; ++i) {
-        for (int j = 0; j < COLS; ++j) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
             QPushButton* btn = buttons[i][j];
+            // Не включаем кнопки, которые уже найдены и отключены
             if (!btn->isEnabled() && !enable) continue;
 
             bool isSelected = false;
+            // Проверяем, не является ли кнопка одной из сейчас открытых
             for (QPushButton* selBtn : selectedButtons) {
                 if (btn == selBtn) {
                     isSelected = true;
@@ -404,18 +436,18 @@ void MemoryGameWindow::showVictoryScreen() {
     gameBGMPlayer->stop();
     victoryPlayer->setPosition(0);
     victoryPlayer->play();
-    emit gameWon(attempts);
+    emit gameWon(attempts, coinMultiplier);
     this->close();
 }
 
 void MemoryGameWindow::showGameOver(const QString& reason) {
-    Q_UNUSED(reason);
+    Q_UNUSED(reason); // Макрос чтобы компилятор не ругался на неиспользуемую переменную
     gameTimer->stop();
     enableAllButtons(false);
     gameBGMPlayer->stop();
     defeatPlayer->setPosition(0);
     defeatPlayer->play();
-    emit gameLost(matchedPairs);
+    emit gameLost(matchedPairs, coinMultiplier);
     this->close();
 }
 

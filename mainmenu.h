@@ -2,83 +2,69 @@
 #define MAINMENU_H
 
 #include <QWidget>
-#include <QMediaPlayer> // Для фоновой музыки
-#include <QSoundEffect> // Для звуковых эффектов
-#include <QAudioOutput> // НОВОЕ: Для управления громкостью QMediaPlayer в Qt 6
+#include <QMediaPlayer> // Для воспроизведения музыки
+#include <QSoundEffect>
+#include <QAudioOutput> // Для управления громкостью в Qt 6
 
+// Предварительное объявление классов (Forward declaration)
+// Это ускоряет компиляцию, мы просто говорим компилятору, что такие классы существуют
 class QPushButton;
-class QLabel; // Теперь нужен, т.к. добавили в класс
+class QLabel;
 class MemoryGameWindow;
 class QSettings;
-class QCloseEvent; // Для protected-метода
-
+class QCloseEvent;
 class SettingsWindow;
 
-// Класс главного меню.
+// Класс главного меню
 class MainMenu : public QWidget
 {
-    Q_OBJECT // Макрос Qt для работы с сигналами и слотами
+    Q_OBJECT
 
 public:
-    /**
-     * Конструктор класса MainMenu
-     * parent Родительский виджет (обычно nullptr для главного окна)
-     */
+    // Конструктор. parent = nullptr означает, что у этого окна нет родителя (оно главное)
     explicit MainMenu(QWidget *parent = nullptr);
 
     ~MainMenu();
 
 protected:
-    // ВОТ ОДНО ИЗ МЕСТ, ГДЕ НУЖНА БЫЛА РЕАЛИЗАЦИЯ:
-    // Используется для сохранения монет при выходе.
+    // Переопределяем стандартное событие закрытия окна
+    // Это нужно, чтобы успеть сохранить монеты перед выходом
     void closeEvent(QCloseEvent *event) override;
 
 private slots:
-    // Слот, вызываемый при нажатии кнопки Играть
     void onPlayClicked();
-
-    // Слот, вызываемый при нажатии кнопки Стили
     void onStylesClicked();
-
-    // Слот, вызываемый при нажатии кнопки Настройки
     void onSettingsClicked();
 
-    // ВОТ ОДНО ИЗ МЕСТ, ГДЕ НУЖНА БЫЛА РЕАЛИЗАЦИЯ:
-    // Слот, вызываемый, когда игра сообщает о победе.
-    // moves Количество ходов, затраченных на победу.
-    void onGameWon(int moves);
+    // Слот, который вызовется при победе
+    void onGameWon(int moves, double multiplier);
 
-    // ВОТ ОДНО ИЗ МЕСТ, ГДЕ НУЖНА БЫЛА РЕАЛИЗАЦИЯ:
-    // Слот, вызываемый, когда игра сообщает о поражении.
-    // pairsFound Количество найденных пар до поражения.
-    void onGameLost(int pairsFound);
+    // Слот, который вызовется при поражении
+    void onGameLost(int pairsFound, double multiplier);
 
-    // ВОТ ОДНО ИЗ МЕСТ, ГДЕ НУЖНА БЫЛА РЕАЛИЗАЦИЯ:
-    // Слот, вызываемый при закрытии окна игры.
+    // Когда окно игры закроется, мы снова покажем меню
     void onGameWindowClosed();
 
-    // НОВОЕ: Слот для загрузки и применения настроек аудио (громкость BGM)
+    // Обновляет громкость звука
     void applyAudioSettings();
 
 private:
-    // Настраивает пользовательский интерфейс (UI) виджета
     void setupUI();
-
-    // Применяет стили QSS к виджету
     void applyStyles();
 
-    // Загружает, сохраняет и обновляет количество монет.
+    // Функции для работы с сохранениями (монеты)
     void loadCoins();
     void saveCoins();
-    void updateCoinLabel(); // Вспомогательный метод для обновления метки монет
+    void updateCoinLabel();
 
-    // --- Члены класса ---
-    int coins;              // Текущее количество монет
-    QLabel *coinLabel;      // Метка для отображения монет
+    // --- Переменные класса ---
+    int coins;
+    QLabel *coinLabel;
 
-    QMediaPlayer *menuBGMPlayer; // Фоновая музыка меню
-    QAudioOutput *menuAudioOutput; // НОВОЕ: Выход для аудио в Qt 6
-    QMediaPlayer *clickSound;    // Звук нажатия кнопки
+    // Плееры для фоновой музыки и звуков клика
+    QMediaPlayer *menuBGMPlayer;
+    QAudioOutput *menuAudioOutput;
+    QMediaPlayer *clickSound;
     QAudioOutput *clickAudioOutput;
 };
 

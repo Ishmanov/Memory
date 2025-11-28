@@ -2,6 +2,9 @@
 #include "memorygamewindow.h"
 #include "styleswindow.h"
 #include "settingswindow.h"
+#include "difficultyselectionwindow.h"
+#include "difficulties.h"
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -16,19 +19,23 @@
 
 void MainMenu::loadCoins()
 {
+    // QSettings позволяет сохранять настройки между запусками программы
+    // "AmNyamm" - имя автора/компании, "MemoryGame" - название игры
     QSettings settings("AmNyamm", "MemoryGame");
+    // Если настройки нет, вернет 1000 по умолчанию
     coins = settings.value("coins", 1000).toInt();
 }
 
 void MainMenu::saveCoins()
 {
     QSettings settings("AmNyamm", "MemoryGame");
-    settings.setValue("coins", coins);
+    settings.setValue("coins", coins); // Записываем значение на диск
 }
 
 void MainMenu::updateCoinLabel()
 {
     if (coinLabel) {
+        // %1 заменится на значение переменной coins
         coinLabel->setText(QString("Монеты: %1 💰").arg(coins));
     }
 }
@@ -37,6 +44,8 @@ void MainMenu::applyAudioSettings()
 {
     QSettings settings("AmNyamm", "MemoryGame");
     bool musicEnabled = settings.value("audio/music_enabled", true).toBool();
+
+    // Если музыка включена громкость 0.1, иначе 0.0 (тишина)
     float musicVolume = musicEnabled ? 0.1f : 0.0f;
     if (menuAudioOutput) menuAudioOutput->setVolume(musicVolume);
 
@@ -57,9 +66,11 @@ MainMenu::MainMenu(QWidget *parent)
     setupUI();
     applyStyles();
 
+    // Настраиваем плеер
     menuBGMPlayer->setAudioOutput(menuAudioOutput);
+    // qrc:/ - это путь к ресурсам, встроенным внутрь exe-файла
     menuBGMPlayer->setSource(QUrl("qrc:/audios/menu_bgm.mp3"));
-    menuBGMPlayer->setLoops(QMediaPlayer::Infinite);
+    menuBGMPlayer->setLoops(QMediaPlayer::Infinite); // Бесконечный повтор
 
     clickSound->setAudioOutput(clickAudioOutput);
     clickSound->setSource(QUrl("qrc:/audios/button_click.mp3"));
@@ -72,10 +83,11 @@ MainMenu::~MainMenu()
 {
 }
 
+// Вызывается автоматически при нажатии на крестик окна
 void MainMenu::closeEvent(QCloseEvent *event)
 {
-    saveCoins();
-    QWidget::closeEvent(event);
+    saveCoins(); // Сохраняем прогресс
+    QWidget::closeEvent(event); // Разрешаем закрытие
 }
 
 void MainMenu::setupUI()
@@ -110,6 +122,7 @@ void MainMenu::setupUI()
 
     QPushButton *exitButton = new QPushButton("Выход");
     exitButton->setObjectName("menuButton");
+    // qApp - глобальный указатель на приложение, quit - выход из программы
     connect(exitButton, &QPushButton::clicked, qApp, &QApplication::quit);
 
     mainLayout->addWidget(titleLabel);
@@ -171,19 +184,32 @@ void MainMenu::applyStyles()
 
 void MainMenu::onPlayClicked()
 {
-    clickSound->setPosition(0);
+    clickSound->setPosition(0); // Перемотка звука в начало
     clickSound->play();
-    menuBGMPlayer->stop();
-    this->hide();
 
-    MemoryGameWindow *gameWindow = new MemoryGameWindow();
-    gameWindow->setAttribute(Qt::WA_DeleteOnClose);
+    // Создаем окно выбора сложности
+    DifficultySelectionWindow *diffWindow = new DifficultySelectionWindow(this);
+    // WA_DeleteOnClose означает, что память освободится сама при закрытии окна
+    diffWindow->setAttribute(Qt::WA_DeleteOnClose);
 
-    connect(gameWindow, &MemoryGameWindow::gameWon, this, &MainMenu::onGameWon);
-    connect(gameWindow, &MemoryGameWindow::gameLost, this, &MainMenu::onGameLost);
-    connect(gameWindow, &QWidget::destroyed, this, &MainMenu::onGameWindowClosed);
+    // Используем лямбда-функцию (анонимную функцию) для обработки результата
+    connect(diffWindow, &DifficultySelectionWindow::difficultySelected, this, [this](GameDifficulty* difficulty){
+        // Этот код выполнится, когда сложность будет выбрана
+        menuBGMPlayer->stop();
+        this->hide(); // Скрываем главное меню
 
-    gameWindow->show();
+        // Создаем окно игры с выбранной сложностью
+        MemoryGameWindow *gameWindow = new MemoryGameWindow(difficulty);
+        gameWindow->setAttribute(Qt::WA_DeleteOnClose);
+
+        connect(gameWindow, &MemoryGameWindow::gameWon, this, &MainMenu::onGameWon);
+        connect(gameWindow, &MemoryGameWindow::gameLost, this, &MainMenu::onGameLost);
+        connect(gameWindow, &QWidget::destroyed, this, &MainMenu::onGameWindowClosed);
+
+        gameWindow->show();
+    });
+
+    diffWindow->show();
 }
 
 void MainMenu::onStylesClicked()
@@ -194,7 +220,7 @@ void MainMenu::onStylesClicked()
     StylesWindow *stylesWindow = new StylesWindow(coins, this);
     stylesWindow->setAttribute(Qt::WA_DeleteOnClose);
 
-    // ВАЖНО: Подключаем обновление монет при покупке
+    // Подписываемся на изменение монет, чтобы обновить их в меню сразу после покупки
     connect(stylesWindow, &StylesWindow::coinsChanged, this, [this](int newCoins) {
         this->coins = newCoins;
         this->updateCoinLabel();
@@ -209,35 +235,43 @@ void MainMenu::onSettingsClicked()
     clickSound->setPosition(0);
     clickSound->play();
     SettingsWindow settingsWindow(this);
+    // exec() запускает окно в модальном режиме (блокирует остальные окна пока открыто)
     settingsWindow.exec();
-    applyAudioSettings();
+    applyAudioSettings(); // Применяем настройки сразу после закрытия окна настроек
 }
 
-void MainMenu::onGameWon(int moves)
+void MainMenu::onGameWon(int moves, double multiplier)
 {
-    int reward = qMax(500, 1000 - moves * 10);
-    coins += reward;
+    // Расчет награды: чем меньше ходов, тем больше монет (но не меньше 500)
+    int baseReward = qMax(500, 1000 - moves * 10);
+    // Умножаем на коэффициент сложности
+    int finalReward = static_cast<int>(baseReward * multiplier);
+
+    coins += finalReward;
     saveCoins();
 
     QMessageBox::information(this, "Победа!",
-                             QString("Поздравляем! Вы нашли все пары за %1 ходов.\nНаграда: %2 💰").arg(moves).arg(reward));
+                             QString("Поздравляем! Вы нашли все пары за %1 ходов.\nНаграда: %2 💰")
+                                 .arg(moves).arg(finalReward));
     updateCoinLabel();
 }
 
-void MainMenu::onGameLost(int pairsFound)
+void MainMenu::onGameLost(int pairsFound, double multiplier)
 {
-    int reward = pairsFound * 50;
-    coins += reward;
+    int baseReward = pairsFound * 50;
+    int finalReward = static_cast<int>(baseReward * multiplier);
+
+    coins += finalReward;
     saveCoins();
 
     QMessageBox::information(this, "Поражение",
-                             QString("Игра окончена.\nНаграда: %2 💰").arg(pairsFound).arg(reward));
+                             QString("Игра окончена.\nНаграда: %2 💰").arg(pairsFound).arg(finalReward));
     updateCoinLabel();
 }
 
 void MainMenu::onGameWindowClosed()
 {
-    this->show();
+    this->show(); // Показываем меню снова
     loadCoins();
     updateCoinLabel();
     menuBGMPlayer->play();
