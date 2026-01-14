@@ -22,14 +22,16 @@ void MainMenu::loadCoins()
     this->setWindowIcon(QIcon(":/icons/game_icon.ico"));
     // QSettings позволяет сохранять настройки между запусками программы
     // "AmNyamm" - имя автора/компании, "MemoryGame" - название игры
-    QSettings settings("AmNyamm", "MemoryGame");
+    QString savePath = qApp->applicationDirPath() + "/save.ini";
+    QSettings settings(savePath, QSettings::IniFormat);
     // Если настройки нет, вернет 1000 по умолчанию
     coins = settings.value("coins", 1000).toInt();
 }
 
 void MainMenu::saveCoins()
 {
-    QSettings settings("AmNyamm", "MemoryGame");
+    QString savePath = qApp->applicationDirPath() + "/save.ini";
+    QSettings settings(savePath, QSettings::IniFormat);
     settings.setValue("coins", coins); // Записываем значение на диск
 }
 
@@ -43,7 +45,8 @@ void MainMenu::updateCoinLabel()
 
 void MainMenu::applyAudioSettings()
 {
-    QSettings settings("AmNyamm", "MemoryGame");
+    QString savePath = qApp->applicationDirPath() + "/save.ini";
+    QSettings settings(savePath, QSettings::IniFormat);
     bool musicEnabled = settings.value("audio/music_enabled", true).toBool();
 
     // Если музыка включена громкость 0.1, иначе 0.0 (тишина)

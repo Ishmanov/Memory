@@ -83,7 +83,7 @@ void SettingsWindow::setupUI()
 void SettingsWindow::loadSettings()
 {
     // Создаем объект настроек. Он сам найдет файл конфигурации
-    QSettings settings;
+    QSettings settings(qApp->applicationDirPath() + "/save.ini", QSettings::IniFormat);
 
     // Читаем значение. Если его нет, вернем true (по умолчанию включено)
     bool musicEnabled = settings.value(MusicKey, true).toBool();
@@ -95,13 +95,13 @@ void SettingsWindow::loadSettings()
 
 void SettingsWindow::onMusicToggle(int state)
 {
-    QSettings settings;
+    QSettings settings(qApp->applicationDirPath() + "/save.ini", QSettings::IniFormat);
     // Сохраняем: если галочка стоит (Qt::Checked), то true, иначе false
     settings.setValue(MusicKey, (state == Qt::Checked));
 }
 
 void SettingsWindow::onSoundToggle(int state)
 {
-    QSettings settings;
+    QSettings settings(qApp->applicationDirPath() + "/save.ini", QSettings::IniFormat);
     settings.setValue(SoundKey, (state == Qt::Checked));
 }

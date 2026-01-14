@@ -19,7 +19,7 @@ void MemoryGameWindow::applyAudioSettings()
     QCoreApplication::setOrganizationName(ORGANIZATION_NAME);
     QCoreApplication::setApplicationName(APPLICATION_NAME);
 
-    QSettings settings;
+    QSettings settings(qApp->applicationDirPath() + "/save.ini", QSettings::IniFormat);
 
     // 1. Музыка
     bool musicEnabled = settings.value("audio/music_enabled", true).toBool();

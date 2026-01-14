@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QDebug>
+#include <QApplication>
 
 const int STYLE_COST = 10000;
 const int TOTAL_STYLES = 3;
@@ -13,7 +14,7 @@ const int TOTAL_STYLES = 3;
 StylesWindow::StylesWindow(int currentCoins, QWidget *parent)
     : QDialog(parent)
     , currentCoins(currentCoins)
-    , settings("AmNyamm", "MemoryGame")
+    , settings(qApp->applicationDirPath() + "/save.ini", QSettings::IniFormat)
 {
     setupUI();
     applyStyles();
